@@ -40,14 +40,17 @@ def get_buget():
 
     print("-----------------------------------------------------------------\n")
     for data in stock_list:
+        weight = 0
+        profit_rate = 0
+        profit_rate = int((price_list[data[0]] - data[2])/data[2]*100)
         if data[0] != 'samsung' and data[0] != 'hynix':
-            print(data[3] + ": ")
-            print("(비중: " + "{0:,}원".format(data[1]*data[2]*exchange_rate) + ")")
-            print("{0:>30,}달러".format(price_list[data[0]]) + " (매수가격" + "{0:,}달러".format(data[2]) + ", 수익률: " + str(round((price_list[data[0]]- data[2])/data[2]*100,2)) + "%)")
+            weight = data[1]*data[2]*exchange_rate
+            print(data[3] + "(비중: " + "{0:,}원".format(weight) + ")")
+            print("--> 현재 가격 : " + "{0:,}달러".format(price_list[data[0]]) + " (매수 가격" + "{0:,}달러".format(data[2]) + ", 수익률: " + str(profit_rate) + "% -> " + "{0:,}원".format(int(weight*profit_rate/100)) + ")\n")
         else:
-            print(data[3] + ": ")
-            print("(비중: " + "{0:,}원".format(data[1]*data[2]) + ")")
-            print("{0:>30,}원".format(price_list[data[0]]) + " (매수가격" + "{0:,}원".format(data[2]) + ", 수익률: " + str(round((price_list[data[0]]- data[2])/data[2]*100,2)) + "%)")
+            weight = data[1]*data[2]
+            print(data[3] + "(비중: " + "{0:,}원".format(weight) + ")")
+            print("--> 현재 가격: " + "{0:,}원".format(price_list[data[0]]) + " (매수 가격" + "{0:,}원".format(data[2]) + ", 수익률: " + str(profit_rate) + "% -> " + "{0:,}원".format(int(weight*profit_rate/100)) + ")\n")
 
     for i in stock_list:
         rate = 1
