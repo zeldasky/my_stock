@@ -58,9 +58,9 @@ def get_stock_profit():
             stock[exchange_rate] = current_exchange_rate
         weight = stock[stock_quantity] * stock[initial_price] * stock[exchange_rate]
         # 상세 투자 내역 확인이 필요하면 아래 주석 삭제
-        # print(stock[kr_name] + "(투자금액 : " + "{0:,}원".format(weight) + ")")
-        # print("--> 현재가격 : " + "{0:,}".format(stock[current_price]) + stock[display_rate] + " ,매수가격: " + "{0:,}".format(stock[initial_price]) + stock[display_rate])
-        # print("--> 수익률: " + str(stock[profit_rate]) + "% -> " + "{0:,}".format(int(weight*stock[profit_rate]/100)) + "원\n")
+        print(stock[kr_name] + "(투자금액 : " + "{0:,}원".format(weight) + ")")
+        print("--> 현재가격 : " + "{0:,}".format(stock[current_price]) + stock[display_rate] + " ,매수가격: " + "{0:,}".format(stock[initial_price]) + stock[display_rate])
+        print("--> 수익률: " + str(stock[profit_rate]) + "% -> " + "{0:,}".format(int(weight*stock[profit_rate]/100)) + "원\n")
         first_total += stock[initial_price] * stock[stock_quantity] * stock[exchange_rate]
         current_total += stock[current_price] * stock[stock_quantity] * stock[exchange_rate]
 
