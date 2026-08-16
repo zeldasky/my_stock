@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ instrument.name_ko }} · my_stock{% endblock %}
+
+{% block content %}
+<div class="metrics">
+  <div class="metric">
+    <div class="label">{{ instrument.name_ko }} ({{ instrument.symbol }})</div>
+    <div class="value">
+      {% if item %}{{ item.price_local|num(0 if not item.is_foreign else 2) }}{% else %}—{% endif %}
+      <span style="font-size:15px">{{ '원' if instrument.currency == 'KRW' else '달러' }}</span>
+    </div>
+    <div class="sub">{{ instrument.market }}</div>
+  </div>
+  {% if item %}
+  <div class="metric">
+    <div class="label">보유</div>
+    <div class="value">{{ item.position.quantity|num(0) }}<span style="font-size:15px"> 주</span></div>
+    <div class="sub">평단 {{ item.position.avg_price_local|num(0 if not item.is_foreign else 2) }}</div>
+  </div>
+  <div class="metric">
+    <div class="label">평가손익</div>
+    <div class="value {{ item.unrealized_krw|sign }}">{{ item.unrealized_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub {{ item.return_pct_krw|sign }}">{{ item.return_pct_krw|pct }}</div>
+  </div>
+  {% if item.is_foreign %}
+  <div class="metric">
+    <div class="label">환차손익</div>
+    <div class="value {{ item.fx_effect_krw|sign }}">{{ item.fx_effect_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub">매입 {{ item.position.avg_fx_rate|num }} → 현재 {{ item.fx_rate|num }}</div>
+  </div>
+  <div class="metric">
+    <div class="label">종목 수익률</div>
+    <div class="value {{ item.return_pct_local|sign }}">{{ item.return_pct_local|pct }}</div>
+    <div class="sub">환율 영향 제거 ({{ instrument.currency }} 기준)</div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>주가 추이
+    <span class="period">
+      {% for value, label in periods %}
+        <a href="/stocks/{{ instrument.id }}?days={{ value }}"
+           class="{% if days == value %}active{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </span>
+  </h2>
+  {% with show_cost = false, labels = {'v': '종가', 'c': '', 'r': ''} %}
+    {% include "_chart.html" %}
+  {% endwith %}
+</div>
+
+<div class="card">
+  <h2>이 종목의 거래 내역</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>거래일</th><th>구분</th><th>수량</th><th>단가</th>
+            <th class="hide-sm">환율</th><th>금액(원)</th><th class="hide-sm">메모</th></tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td class="num">{{ tx.traded_on }}</td>
+          <td><span class="badge {% if tx.tx_type == 'BUY' %}buy{% elif tx.tx_type == 'SELL' %}sell{% endif %}">
+            {% if tx.tx_type == 'BUY' %}매수{% elif tx.tx_type == 'SELL' %}매도
+            {% elif tx.tx_type == 'DIVIDEND' %}배당{% elif tx.tx_type == 'SPLIT' %}분할
+            {% else %}{{ tx.tx_type }}{% endif %}</span></td>
+          <td class="num">{{ tx.quantity|num(0) }}</td>
+          <td class="num">{{ tx.price|num(0 if tx.currency == 'KRW' else 2) }}</td>
+          <td class="num hide-sm">{{ tx.fx_rate|num(2) }}</td>
+          <td class="num">{{ (tx.quantity * tx.price * tx.fx_rate)|won }}</td>
+          <td class="hide-sm muted">{{ tx.memo or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">거래 내역이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="/static/app.js"></script>{% endblock %}

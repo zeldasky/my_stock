@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% set page = 'transactions' %}
+{% block title %}거래내역 · my_stock{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>거래 등록</h2>
+  <form method="post" action="/transactions">
+    <div class="form-grid">
+      <div>
+        <label for="tx_type">구분</label>
+        <select id="tx_type" name="tx_type">
+          {% for value, label in tx_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="traded_on">거래일</label>
+        <input id="traded_on" name="traded_on" type="date" value="{{ today }}" required>
+      </div>
+      <div>
+        <label for="instrument_id">보유 종목</label>
+        <select id="instrument_id" name="instrument_id">
+          <option value="">— 선택 —</option>
+          {% for i in instruments %}
+            <option value="{{ i.id }}">{{ i.name_ko }} ({{ i.symbol }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="quantity">수량</label>
+        <input id="quantity" name="quantity" type="text" inputmode="decimal" placeholder="0">
+      </div>
+      <div>
+        <label for="price">단가</label>
+        <input id="price" name="price" type="text" inputmode="decimal" placeholder="0">
+      </div>
+      <div>
+        <label for="fee">수수료</label>
+        <input id="fee" name="fee" type="text" inputmode="decimal" placeholder="0">
+      </div>
+      <div>
+        <label for="tax">세금</label>
+        <input id="tax" name="tax" type="text" inputmode="decimal" placeholder="0">
+      </div>
+      <div>
+        <label for="fx_rate">환율</label>
+        <input id="fx_rate" name="fx_rate" type="text" inputmode="decimal" placeholder="자동">
+      </div>
+      <div>
+        <label for="memo">메모</label>
+        <input id="memo" name="memo" type="text" placeholder="선택">
+      </div>
+      <button type="submit">등록</button>
+    </div>
+
+    <details class="new-item">
+      <summary>+ 새 종목 추가 (보유 종목에 없을 때)</summary>
+      <div class="form-grid">
+        <div>
+          <label for="search">종목 검색</label>
+          <input id="search" data-instrument-search list="instrument-options"
+                 type="text" placeholder="삼성전자 / AAPL" autocomplete="off">
+          <datalist id="instrument-options"></datalist>
+        </div>
+        <div>
+          <label for="new_symbol">심볼 / 종목코드</label>
+          <input id="new_symbol" name="new_symbol" type="text" placeholder="005930 또는 AAPL">
+        </div>
+        <div>
+          <label for="new_market">시장</label>
+          <select id="new_market" name="new_market">
+            {% for m in markets %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="new_name">종목명</label>
+          <input id="new_name" name="new_name" type="text" placeholder="삼성전자">
+        </div>
+      </div>
+      <p class="muted">해외 종목은 환율을 비워두면 거래일 고시환율이 자동으로 적용됩니다.
+        액면분할은 단가 칸에 비율(2 = 1주→2주)을 넣으세요.</p>
+    </details>
+  </form>
+</div>
+
+<div class="card">
+  <h2>거래 내역
+    <span class="muted" style="font-weight:500">{{ transactions|length }}건</span>
+    <span class="period">
+      <a href="/transactions" class="{% if not instrument_id %}active{% endif %}">전체</a>
+      {% for i in instruments %}
+        <a href="/transactions?instrument_id={{ i.id }}"
+           class="{% if instrument_id == i.id %}active{% endif %}">{{ i.name_ko }}</a>
+      {% endfor %}
+    </span>
+  </h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>거래일</th><th>종목</th><th>구분</th>
+          <th>수량</th><th>단가</th>
+          <th class="hide-sm">환율</th><th>금액(원)</th>
+          <th class="hide-sm">메모</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td class="num">{{ tx.traded_on }}</td>
+          <td>
+            {% if tx.instrument %}
+              <a href="/stocks/{{ tx.instrument.id }}">
+                <span class="name">{{ tx.instrument.name_ko }}</span>
+                <span class="ticker">{{ tx.instrument.symbol }}</span></a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if tx.tx_type == 'BUY' %}buy{% elif tx.tx_type == 'SELL' %}sell{% endif %}">
+              {% if tx.tx_type == 'BUY' %}매수{% elif tx.tx_type == 'SELL' %}매도
+              {% elif tx.tx_type == 'DIVIDEND' %}배당{% elif tx.tx_type == 'SPLIT' %}분할
+              {% else %}{{ tx.tx_type }}{% endif %}</span>
+          </td>
+          <td class="num">{{ tx.quantity|num(0) }}</td>
+          <td class="num">{{ tx.price|num(0 if tx.currency == 'KRW' else 2) }}</td>
+          <td class="num hide-sm">{{ tx.fx_rate|num(2) }}</td>
+          <td class="num">{{ (tx.quantity * tx.price * tx.fx_rate)|won }}</td>
+          <td class="hide-sm muted">{{ tx.memo or '' }}</td>
+          <td>
+            <form method="post" action="/transactions/{{ tx.id }}/delete"
+                  onsubmit="return confirm('이 거래를 삭제할까요? 수익률과 자산추이가 다시 계산됩니다.')">
+              <button class="danger" type="submit">삭제</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">거래 내역이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="/static/app.js"></script>{% endblock %}

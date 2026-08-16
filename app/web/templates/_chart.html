@@ -1,0 +1,35 @@
+{# 서버에서 좌표를 계산한 SVG 라인/영역 차트. 외부 JS 라이브러리 없음. #}
+{% if chart.is_empty %}
+  <div class="empty">그릴 데이터가 부족합니다.</div>
+{% else %}
+<div class="chart-wrap" data-chart
+     data-points='{{ chart.points_json|tojson }}'
+     data-width="{{ chart.width }}"
+     data-labels='{{ labels|default({"v": "평가액", "c": "투자원금", "r": "수익률"})|tojson }}'>
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="추이 차트">
+    <defs>
+      <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="var(--accent)" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+
+    {% for y, label in chart.y_ticks %}
+      <line class="grid-line" x1="0" y1="{{ y }}" x2="{{ chart.width }}" y2="{{ y }}"/>
+      <text class="axis-text" x="6" y="{{ y - 5 }}">{{ label }}</text>
+    {% endfor %}
+
+    <path class="series-area" d="{{ chart.area }}"/>
+    {% if show_cost|default(true) %}<path class="cost-line" d="{{ chart.cost_line }}"/>{% endif %}
+    <path class="series-line" d="{{ chart.line }}"/>
+
+    {% for x, label in chart.x_ticks %}
+      <text class="axis-text" x="{{ x }}" y="{{ chart.height - 8 }}"
+            text-anchor="{% if loop.first %}start{% elif loop.last %}end{% else %}middle{% endif %}">{{ label }}</text>
+    {% endfor %}
+
+    <circle class="hit-dot" r="4" cx="-99" cy="-99" style="opacity:0"/>
+  </svg>
+  <div class="tooltip"></div>
+</div>
+{% endif %}

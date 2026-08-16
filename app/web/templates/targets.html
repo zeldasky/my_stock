@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set page = 'targets' %}
+{% block title %}목표 · my_stock{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>목표 등록</h2>
+  <form method="post" action="/targets">
+    <div class="form-grid">
+      <div>
+        <label for="instrument_id">종목</label>
+        <select id="instrument_id" name="instrument_id" required>
+          {% for item in positions %}
+            <option value="{{ item.position.instrument_id }}">{{ item.position.name_ko }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="kind">조건</label>
+        <select id="kind" name="kind">
+          {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="value">기준값</label>
+        <input id="value" name="value" type="text" inputmode="decimal" required
+               placeholder="가격 또는 %">
+      </div>
+      <div>
+        <label for="note">메모</label>
+        <input id="note" name="note" type="text" placeholder="선택">
+      </div>
+      <button type="submit">등록</button>
+    </div>
+    <p class="muted">가격 조건은 종목 통화 기준(해외는 달러), 수익률 조건은 원화 기준입니다.</p>
+  </form>
+</div>
+
+<div class="card">
+  <h2>등록된 목표</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>종목</th><th>조건</th><th>기준</th><th>현재</th><th>상태</th>
+            <th class="hide-sm">메모</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for status in statuses %}
+        <tr>
+          <td><span class="name">{{ status.target.instrument.name_ko }}</span></td>
+          <td>{{ status.label }}</td>
+          <td class="num">{{ status.target.value|num }}</td>
+          <td class="num">{% if status.observed is not none %}{{ status.observed|num }}{% else %}—{% endif %}</td>
+          <td>{% if status.is_hit %}<span class="badge buy">도달</span>
+              {% else %}<span class="badge">대기</span>{% endif %}</td>
+          <td class="hide-sm muted">{{ status.target.note or '' }}</td>
+          <td>
+            <form method="post" action="/targets/{{ status.target.id }}/delete">
+              <button class="danger" type="submit">삭제</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">등록된 목표가 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
