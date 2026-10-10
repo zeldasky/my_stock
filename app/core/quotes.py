@@ -62,6 +62,27 @@ def _fetch_close(symbol: str, start: dt.date, end: dt.date) -> dict[dt.date, Dec
     return out
 
 
+def _fetch_window(
+    cached_min: dt.date | None,
+    cached_max: dt.date | None,
+    start: dt.date,
+    end: dt.date,
+) -> tuple[dt.date, dt.date] | None:
+    """[start, end] 를 덮으려면 새로 받아야 할 구간. 받을 게 없으면 None.
+
+    캐시는 [min, max] 한 덩어리로 유지한다. 중간에 빈 구간이 생기면 get_price_on 이
+    몇 달 전 종가를 그날 종가로 돌려주는데, min/max 만 보면 덮인 것처럼 보여
+    다시 받지도 않는다. 그래서 앞구간을 채울 때는 기존 캐시 첫날까지 이어서 받는다.
+    """
+    if cached_min is None:
+        return start, end
+    if start < cached_min:
+        return start, max(end, cached_min)
+    if end < cached_max:
+        return None  # 이미 덮인 과거 구간
+    return cached_max, end  # 꼬리만 이어받는다. 마지막 날은 장중 변동을 반영해 갱신
+
+
 # --------------------------------------------------------------------------- #
 # 주가
 # --------------------------------------------------------------------------- #
@@ -96,14 +117,12 @@ def sync_prices(
             )
         ).one()
 
-    if cached_min is None or cached_min > start:
-        fetch_start = start  # 앞구간이 비었으면 전체를 다시 받는다
-    elif cached_max >= end:
-        fetch_start = cached_max  # 이미 덮였지만 마지막 날은 장중 변동을 반영해 갱신
-    else:
-        fetch_start = cached_max  # 꼬리만 이어받는다
+    window = _fetch_window(cached_min, cached_max, start, end)
+    if window is None:
+        return 0
+    fetch_start, fetch_end = window
 
-    fetched = _fetch_close(instrument.symbol, fetch_start, end)
+    fetched = _fetch_close(instrument.symbol, fetch_start, fetch_end)
     if not fetched:
         return 0
 
@@ -113,7 +132,7 @@ def sync_prices(
             select(PriceDaily).where(
                 PriceDaily.instrument_id == instrument.id,
                 PriceDaily.date >= fetch_start,
-                PriceDaily.date <= end,
+                PriceDaily.date <= fetch_end,
             )
         )
     }
@@ -131,7 +150,9 @@ def sync_prices(
             changed += 1
 
     session.flush()
-    logger.info("%s 시세 %d건 갱신 (%s ~ %s)", instrument.symbol, changed, fetch_start, end)
+    logger.info(
+        "%s 시세 %d건 갱신 (%s ~ %s)", instrument.symbol, changed, fetch_start, fetch_end
+    )
     return changed
 
 
@@ -192,9 +213,12 @@ def sync_fx(
             )
         ).one()
 
-    fetch_start = start if cached_min is None or cached_min > start else cached_max
+    window = _fetch_window(cached_min, cached_max, start, end)
+    if window is None:
+        return 0
+    fetch_start, fetch_end = window
 
-    fetched = _fetch_close(pair, fetch_start, end)
+    fetched = _fetch_close(pair, fetch_start, fetch_end)
     if not fetched:
         return 0
 
@@ -204,7 +228,7 @@ def sync_fx(
             select(FxDaily).where(
                 FxDaily.pair == pair,
                 FxDaily.date >= fetch_start,
-                FxDaily.date <= end,
+                FxDaily.date <= fetch_end,
             )
         )
     }
@@ -220,7 +244,7 @@ def sync_fx(
             changed += 1
 
     session.flush()
-    logger.info("%s 환율 %d건 갱신 (%s ~ %s)", pair, changed, fetch_start, end)
+    logger.info("%s 환율 %d건 갱신 (%s ~ %s)", pair, changed, fetch_start, fetch_end)
     return changed
 
 

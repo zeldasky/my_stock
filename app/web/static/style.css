@@ -131,6 +131,9 @@ main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 64px; }
 }
 .period a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+.date-pick { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.date-pick input { width: auto; }
+
 .tooltip {
   position: absolute; pointer-events: none; opacity: 0;
   background: var(--text); color: var(--bg);

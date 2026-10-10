@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..api.deps import SESSION_USER_KEY, DbSession, optional_user
 from ..config import BASE_DIR
@@ -19,11 +19,22 @@ from ..core import transactions as tx_svc
 from ..core.ledger import LedgerError
 from ..core.quotes import QuoteError
 from ..core.security import verify_password
-from ..models import Account, Instrument, Market, Target, TargetKind, TxType, User
+from ..models import (
+    Account,
+    Instrument,
+    Market,
+    Target,
+    TargetKind,
+    Transaction,
+    TxType,
+    User,
+)
 from .charts import build_chart, format_krw_short
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "web" / "templates"))
+
+PERIODS = [(90, "3개월"), (365, "1년"), (1095, "3년"), (3650, "전체")]
 
 
 # --------------------------------------------------------------------------- #
@@ -170,7 +181,76 @@ def dashboard(
             "hits": hits,
             "msg": msg,
             "err": err,
-            "periods": [(90, "3개월"), (365, "1년"), (1095, "3년"), (3650, "전체")],
+            "periods": PERIODS,
+            "period_base": "/?",
+            "refresh_url": f"/?days={days}&refresh=1",
+            "price_label": "현재가",
+        },
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 예상 평가액 — 고른 날짜 기준 평가. 대시보드와 같은 화면을 그날 종가로 그린다.
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/valuation", response_class=HTMLResponse)
+def valuation_page(
+    request: Request,
+    session: DbSession,
+    on: str | None = None,
+    days: int = 365,
+):
+    account = require_account(request, session)
+    if account is None:
+        return _redirect("/login")
+
+    today = dt.date.today()
+    first_day = session.scalar(
+        select(func.min(Transaction.traded_on)).where(
+            Transaction.account_id == account.id
+        )
+    )
+
+    err = None
+    try:
+        day = dt.date.fromisoformat(on) if on else today
+    except ValueError:
+        day, err = today, f"날짜 형식이 올바르지 않습니다: {on}"
+    day = min(day, today)
+    if first_day is not None:
+        day = max(day, first_day)
+
+    # 오늘은 대시보드처럼 캐시만 쓴다. 지난 날짜는 캐시에 없는 구간만 받아온다.
+    refresh = day < today
+    report = None
+    history = []
+    try:
+        report = valuation.value_portfolio(session, account.id, day, refresh=refresh)
+        start = day - dt.timedelta(days=days)
+        if first_day is not None:
+            start = max(start, first_day)
+        history = valuation.daily_history(session, account.id, start, day, refresh=refresh)
+    except QuoteError as exc:
+        err = err or str(exc)
+
+    return templates.TemplateResponse(
+        request,
+        "valuation.html",
+        {
+            "account": account,
+            "report": report,
+            "chart": build_chart(history),
+            "history": history,
+            "days": days,
+            "on": day.isoformat(),
+            "today": today.isoformat(),
+            "first_day": first_day.isoformat() if first_day else "",
+            "err": err,
+            "periods": PERIODS,
+            "period_base": f"/valuation?on={day.isoformat()}&",
+            "refresh_url": None,
+            "price_label": "종가",
         },
     )
 

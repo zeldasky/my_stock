@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% set page = 'valuation' %}
+{% block title %}예상 평가액 · my_stock{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>날짜 선택
+    <span class="muted" style="font-weight:500">— 그날 보유 수량을 그날 종가·환율로 평가</span>
+    <form class="date-pick" method="get" action="/valuation">
+      <input type="date" name="on" value="{{ on }}" min="{{ first_day }}" max="{{ today }}"
+             aria-label="평가 기준일" data-autosubmit required>
+      <input type="hidden" name="days" value="{{ days }}">
+      <button type="submit">조회</button>
+    </form>
+  </h2>
+</div>
+
+{% if report %}
+  {% include "_portfolio.html" %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="/static/app.js"></script>{% endblock %}

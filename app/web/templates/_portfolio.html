@@ -1,0 +1,115 @@
+{# 평가 카드 + 자산 추이 + 보유 종목. 대시보드와 예상 평가액 화면이 같이 쓴다.
+   period_base: 기간 링크 앞부분 ("/?" 또는 "/valuation?on=...&")
+   refresh_url: 시세 새로고침 단추 링크 (없으면 단추를 숨긴다)
+   price_label: 가격 열 제목 #}
+<div class="metrics">
+  <div class="metric">
+    <div class="label">평가액</div>
+    <div class="value">{{ report.market_value_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub">기준일 {{ report.as_of }} · 환율 {{ report.fx_rate|num }}원</div>
+  </div>
+  <div class="metric">
+    <div class="label">투자원금</div>
+    <div class="value">{{ report.cost_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub">보유 {{ report.positions|length }}종목</div>
+  </div>
+  <div class="metric">
+    <div class="label">평가손익</div>
+    <div class="value {{ report.unrealized_krw|sign }}">{{ report.unrealized_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub {{ report.return_pct|sign }}">{{ report.return_pct|pct }}</div>
+  </div>
+  <div class="metric">
+    <div class="label">환차손익</div>
+    <div class="value {{ report.fx_effect_krw|sign }}">{{ report.fx_effect_krw|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub">평가손익 중 환율 기여분</div>
+  </div>
+  {% if report.realized_krw or report.dividend_krw %}
+  <div class="metric">
+    <div class="label">실현손익 + 배당</div>
+    <div class="value {{ (report.realized_krw + report.dividend_krw)|sign }}">
+      {{ (report.realized_krw + report.dividend_krw)|won }}<span style="font-size:15px"> 원</span></div>
+    <div class="sub">실현 {{ report.realized_krw|short }} · 배당 {{ report.dividend_krw|short }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>자산 추이
+    <span class="muted" style="font-weight:500">— 실선 평가액, 점선 투자원금</span>
+    <span class="period">
+      {% for value, label in periods %}
+        <a href="{{ period_base }}days={{ value }}" class="{% if days == value %}active{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </span>
+  </h2>
+  {% include "_chart.html" %}
+</div>
+
+<div class="card">
+  <h2>보유 종목
+    {% if refresh_url %}
+    <a href="{{ refresh_url }}" style="margin-left:auto"><button class="ghost" type="button">시세 새로고침</button></a>
+    {% endif %}
+  </h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>종목</th>
+          <th class="hide-sm">수량</th>
+          <th>{{ price_label }}</th>
+          <th class="hide-sm">평단가</th>
+          <th>평가액</th>
+          <th>평가손익</th>
+          <th>수익률</th>
+          <th class="hide-sm">비중</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in report.positions %}
+        {% set p = item.position %}
+        <tr onclick="location.href='/stocks/{{ p.instrument_id }}'" style="cursor:pointer">
+          <td>
+            <span class="name">{{ p.name_ko }}</span><span class="ticker">{{ p.symbol }}</span>
+            {% if item.is_foreign %}<div class="muted" style="font-size:11px">
+              환차 {{ item.fx_effect_krw|short }} · 종목 {{ item.return_pct_local|pct }}</div>{% endif %}
+          </td>
+          <td class="num hide-sm">{{ p.quantity|num(0) }}</td>
+          <td class="num">{{ item.price_local|num(0 if not item.is_foreign else 2) }}</td>
+          <td class="num hide-sm">{{ p.avg_price_local|num(0 if not item.is_foreign else 2) }}</td>
+          <td class="num">{{ item.market_value_krw|short }}</td>
+          <td class="num {{ item.unrealized_krw|sign }}">{{ item.unrealized_krw|short }}</td>
+          <td class="num {{ item.return_pct_krw|sign }}">{{ item.return_pct_krw|pct }}</td>
+          <td class="num hide-sm">
+            {{ report.weight_pct(item)|num(1) }}%
+            <div class="weight-bar" style="width:{{ report.weight_pct(item)|num(1) }}%"></div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="empty">보유 종목이 없습니다.
+          <a href="/transactions" style="color:var(--accent)">거래 등록하기</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if report.closed %}
+<div class="card">
+  <h2>청산 종목</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>종목</th><th>실현손익</th><th>배당</th></tr></thead>
+      <tbody>
+        {% for p in report.closed %}
+        <tr>
+          <td><span class="name">{{ p.name_ko }}</span><span class="ticker">{{ p.symbol }}</span></td>
+          <td class="num {{ p.realized_pnl_krw|sign }}">{{ p.realized_pnl_krw|won }}</td>
+          <td class="num">{{ p.dividend_krw|won }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}

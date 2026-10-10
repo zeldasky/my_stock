@@ -57,6 +57,25 @@
     svg.addEventListener("touchend", hide);
   });
 
+  /* ---------------- 날짜 고르면 바로 조회 ---------------- */
+
+  document.querySelectorAll("[data-autosubmit]").forEach(function (input) {
+    var timer = null;
+    var typedAt = 0;
+
+    input.addEventListener("keydown", function () { typedAt = Date.now(); });
+    input.addEventListener("change", function () {
+      clearTimeout(timer);
+      // 키보드로 치는 중에는 0002-, 2025-03-01(15일을 치려고 1만 친 순간) 같은 값으로도
+      // change 가 난다. 범위 밖이면 보내지 않고 (ISO 날짜라 문자열 비교가 곧 날짜 비교),
+      // 키보드 입력이면 손을 멈출 때까지 기다린다. 달력에서 고르면 바로 보낸다.
+      var value = input.value;
+      if (!value || (input.min && value < input.min) || (input.max && value > input.max)) return;
+      var typing = Date.now() - typedAt < 300;
+      timer = setTimeout(function () { input.form.submit(); }, typing ? 1200 : 0);
+    });
+  });
+
   /* ---------------- 종목 검색 자동완성 ---------------- */
 
   var search = document.querySelector("[data-instrument-search]");
